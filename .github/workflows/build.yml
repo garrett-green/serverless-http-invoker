@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit_tests:
+  test:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
 
   publish_package:
     if: ${{ github.event_name != 'pull_request' }}
-    needs: [unit_tests]
+    needs: [test]
     runs-on: ubuntu-20.04
     environment: npm
     steps:
