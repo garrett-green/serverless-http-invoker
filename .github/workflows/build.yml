@@ -1,5 +1,8 @@
+name: build
+
 # We want pushes to main, beta, and alpha to trigger a publish to npm for the corresponding npm dist-tag.
 # Any pull request targeting deploy branches should run all tests.
+
 on:
   push:
     branches: [main, beta, alpha]
@@ -7,19 +10,53 @@ on:
   pull_request:
     branches: [main, beta, alpha]
 
-jobs:
-  test:
-    uses: activescott/github-actions-workflows/.github/workflows/npm-tester.yml@npm-tester-v4
-    with:
-      package_dir: ./
-      node_versions: "[14, 16, 18]"
-      do_coveralls: true
+# Allow one concurrent build for the same branch
+concurrency:
+  group: current-branch-${{ github.ref }}
+  cancel-in-progress: true
 
-  publish:
+jobs:
+  unit_tests:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node }}
+          cache: "npm"
+
+      - name: install dependencies
+        run: |
+          npm i
+
+      - name: test
+        env:
+          CI_NODE_VERSION: ${{ matrix.node }}
+        run: |
+          npm run test
+
+  publish_package:
     if: ${{ github.event_name != 'pull_request' }}
-    needs: [test]
-    uses: activescott/github-actions-workflows/.github/workflows/npm-publisher.yml@npm-publisher-v4.0.1
-    with:
-      package_dir: ./
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    needs: [unit_tests]
+    runs-on: ubuntu-20.04
+    environment: npm
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 20
+
+      - name: publish to npm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm install
+          npx semantic-release@17
