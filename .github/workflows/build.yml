@@ -1,8 +1,5 @@
-name: build
-
 # We want pushes to main, beta, and alpha to trigger a publish to npm for the corresponding npm dist-tag.
 # Any pull request targeting deploy branches should run all tests.
-
 on:
   push:
     branches: [main, beta, alpha]
@@ -10,72 +7,19 @@ on:
   pull_request:
     branches: [main, beta, alpha]
 
-# Allow one concurrent build for the same branch
-concurrency:
-  group: current-branch-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node: [18, 20, 22]
+    uses: activescott/github-actions-workflows/.github/workflows/npm-tester.yml@npm-tester-v4
+    with:
+      package_dir: ./
+      node_versions: "[18, 20, 22]"
+      do_coveralls: true
 
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: "npm"
-
-      - name: install dependencies
-        run: |
-          npm i
-
-      - name: test
-        env:
-          CI_NODE_VERSION: ${{ matrix.node }}
-        run: |
-          npm run test
-
-      - name: publish coverage
-        uses: coverallsapp/github-action@master
-        continue-on-error: true
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          flag-name: nodejs-${{ matrix.node }}
-          parallel: true
-  
-  update_code_coverage:
-    needs: test
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Coveralls Finished
-        uses: coverallsapp/github-action@master
-        continue-on-error: true
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
-
-  publish_package:
+  publish:
     if: ${{ github.event_name != 'pull_request' }}
     needs: [test]
-    runs-on: ubuntu-latest
-    environment: npm
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: publish to npm
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm install
-          npx semantic-release@17
+    uses: activescott/github-actions-workflows/.github/workflows/npm-publisher.yml@npm-publisher-v4.0.1
+    with:
+      package_dir: ./
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
