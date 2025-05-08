@@ -39,10 +39,29 @@ jobs:
           CI_NODE_VERSION: ${{ matrix.node }}
         run: |
           npm run test
+      
+      - name: publish coverage
+        uses: coverallsapp/github-action@master
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          flag-name: nodejs-${{ matrix.node }}
+          parallel: true
+  
+  update_code_coverage:
+    needs: test
+    runs-on: ntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@master
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true
 
   publish_package:
     if: ${{ github.event_name != 'pull_request' }}
-    needs: [test]
+    needs: test
     runs-on: ubuntu-latest
     environment: npm
     steps:
